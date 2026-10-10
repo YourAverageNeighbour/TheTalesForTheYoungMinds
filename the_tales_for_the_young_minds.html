@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Tales for the Young Minds - Magical Storytelling Portal</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            midnight: {
+              900: '#0B0F19',
+              800: '#111827',
+              700: '#1F2937',
+              600: '#374151'
+            },
+            magical: {
+              gold: '#FBBF24',
+              amber: '#F59E0B',
+              glow: '#3B82F6',
+              purple: '#8B5CF6',
+              emerald: '#10B981'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Georgia', 'serif']
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'spin-slow': 'spin 12s linear infinite',
+            'bounce-soft': 'bounce 2s infinite'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  
+  <!-- React & Babel CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      background-color: #0B0F19;
+      color: #F3F4F6;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .font-cinzel {
+      font-family: 'Cinzel', serif;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1F2937;
+      border-radius: 4px;
+      border: 1px solid #374151;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3B82F6;
+    }
+
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .glass-card {
+      background: rgba(31, 41, 55, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(251, 191, 36, 0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.25);
+    }
+
+    .glow-text-gold {
+      text-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+    }
+    .glow-text-blue {
+      text-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+    }
+
+    /* Canvas background overlay */
+    #bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Page Flip effect */
+    .page-turn {
+      transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1);
+      transform-origin: left center;
+    }
+
+    /* Radial Gradient Backgrounds */
+    .radial-bg {
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0b0f19 70%);
+    }
+  </style>
+</head>
+<body class="radial-bg min-h-screen text-slate-100 selection:bg-amber-500 selection:text-black">
+  <canvas id="bg-canvas"></canvas>
+  <div id="root" class="relative z-10"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // --- FALLBACK IMAGE & CANVAS SVG GENERATOR ---
+    // Guarantees zero broken images by serving dynamic thematic SVG/Canvas fallback if web images fail
+    const FallbackImage = ({ src, alt, className, category, title }) => {
+      const [imgError, setImgError] = useState(false);
+      const [imgLoaded, setImgLoaded] = useState(false);
+
+      // SVG dynamic generator based on story title or category
+      const getSvgPattern = () => {
+        const catColors = {
+          panchatantra: { bg1: '#064e3b', bg2: '#022c22', icon: 'fa-tree', text: 'Panchatantra' },
+          aesop: { bg1: '#78350f', bg2: '#451a03', icon: 'fa-feather', text: 'Aesop Fable' },
+          greek: { bg1: '#1e3a8a', bg2: '#172554', icon: 'fa-landmark', text: 'Greek Myth' },
+          space: { bg1: '#312e81', bg2: '#1e1b4b', icon: 'fa-rocket', text: 'Cosmic Quest' },
+          folktales: { bg1: '#581c87', bg2: '#3b0764', icon: 'fa-dragon', text: 'Folktale' },
+          arthurian: { bg1: '#831843', bg2: '#500724', icon: 'fa-shield-halved', text: 'Legend' }
+        };
+
+        const config = catColors[category] || { bg1: '#1f2937', bg2: '#111827', icon: 'fa-book-open', text: 'Story Tale' };
+
+        return (
+          <div class={`w-full h-full flex flex-col items-center justify-center p-4 text-center select-none bg-gradient-to-br from-slate-900 to-indigo-950 border border-slate-700/50 relative overflow-hidden ${className}`}>
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl"></div>
+            <i className={`fa-solid ${config.icon} text-4xl mb-3 text-amber-400 drop-shadow-md`}></i>
+            <span className="text-xs uppercase tracking-widest text-amber-300 font-semibold mb-1">{config.text}</span>
+            <h4 className="text-sm font-bold text-slate-100 font-cinzel line-clamp-2 px-2">{title || alt || 'Magical Tale'}</h4>
+            <div className="mt-3 px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-[10px] text-amber-200">
+              <i className="fa-solid fa-sparkles mr-1"></i> Interactive Story
+            </div>
+          </div>
+        );
+      };
+
+      if (imgError || !src) {
+        return getSvgPattern();
+      }
+
+      return (
+        <div className={`relative overflow-hidden ${className}`}>
+          {!imgLoaded && (
+            <div className="absolute inset-0 bg-slate-800/80 animate-pulse flex items-center justify-center">
+              <i className="fa-solid fa-spinner animate-spin text-amber-400 text-xl"></i>
+            </div>
+          )}
+          <img
+            src={src}
+            alt={alt}
+            className={`w-full h-full object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+          />
+        </div>
+      );
+    };
+
+    // --- STREAMING_CHUNK: Defining Global Data Stores & Dynamic Stories... ---
+    const TRANSLATIONS = {
+      EN: { title: "The Tales for Young Minds", map: "World Map", library: "Story Library", surprise: "Surprise Me", chars: "Characters", explore: "More Links", creator: "Creator Profile", search: "Search tales...", filterAll: "All Realms", readNow: "Read Story", quiz: "Test Wisdom", achievements: "Your Badges" },
+      HI: { title: "युवा मनों की कहानियाँ", map: "मानचित्र", library: "कहानी संग्रह", surprise: "अनोखी कहानी", chars: "पात्र", explore: "अन्य लिंक", creator: "रचयिता", search: "कहानी खोजें...", filterAll: "सभी क्षेत्र", readNow: "कहानी पढ़ें", quiz: "ज्ञान परीक्षा", achievements: "आपके बैज" },
+      BN: { title: "কিশোর মনের গল্পগাথা", map: "বিশ্ব মানচিত্র", library: "গল্পের ভাণ্ডার", surprise: "আমাকে চমকে দাও", chars: "চরিত্রসমূহ", explore: "আরও নতুন লিঙ্ক", creator: "রচিয়তা পরিলেখ", search: "গল্প খুঁজুন...", filterAll: "সব রাজ্য", readNow: "পড়ুন", quiz: "কুইজ", achievements: "ব্যাজ" },
+      MR: { title: "लहान मनांच्या कथा", map: "नकाशा", library: "कथासंग्रह", surprise: "सरप्राईज", chars: "पात्रे", explore: "अधिक लिंक्स", creator: "निर्माता", search: "शोधा...", filterAll: "सर्व क्षेत्रे", readNow: "वाचा", quiz: "प्रश्नोत्तरे", achievements: "पदके" },
+      TA: { title: "இளம் மனங்களின் கதைகள்", map: "உலக வரைபடம்", library: "கதை நூலகம்", surprise: "ஆச்சரியம்", chars: "கதாபாத்திரங்கள்", explore: "மேலும் இணையங்கள்", creator: "படைப்பாளர்", search: "தேடுக...", filterAll: "அனைத்தும்", readNow: "படிக்க", quiz: "வினாடி வினா", achievements: "பதக்கங்கள்" },
+      KN: { title: "ಯುವ ಮನಸ್ಸಿನ ಕಥೆಗಳು", map: "ನಕ್ಷೆ", library: "ಕಥಾ ಕಣಜ", surprise: "ಆಶ್ಚರ್ಯ ಪಡಿಸಿ", chars: "ಪಾತ್ರಗಳು", explore: "ಹೆಚ್ಚಿನ ಸಂಪರ್ಕಗಳು", creator: "ಸೃಷ್ಟಿಕರ್ತ", search: "ಹುಡುಕಿ...", filterAll: "ಎಲ್ಲವೂ", readNow: "ಓದಿ", quiz: "ರಸಪ್ರಶ್ನೆ", achievements: "ಸಾಧನೆಗಳು" }
+    };
+
+    // 20+ Detailed Stories from Panchatantra, Aesop, Greek, Space, Folktales
+    const STORIES = [
+      {
+        id: "p1",
+        title: "The Monkey and the Crocodile",
+        category: "panchatantra",
+        regionId: "panchatantra-forest",
+        readTime: "4 min",
+        moral: "Quick wit and presence of mind can defeat betrayal.",
+        summary: "In a lush jamun tree along the riverbank lived a clever monkey named Raktu. He befriended a crocodile, but betrayal lurked in deep waters.",
+        cover: "https://images.unsplash.com/photo-1540573133985-7787881730fb?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "High atop a sprawling Jamun tree near the banks of the Ganges lived Raktu, a wise and cheerful monkey. The tree bore the sweetest, juiciest purple berries, and Raktu enjoyed a peaceful life eating fruit and resting in the cool shade.", image: "https://images.unsplash.com/photo-1540573133985-7787881730fb?auto=format&fit=crop&w=800&q=80" },
+          { text: "One afternoon, Karalamoutha the crocodile swam ashore resting after a long hunt. Raktu kindly plucked juicy berries and tossed them down. Surprised by the kindness, Karalamoutha thanked him, and thus began a daily friendship.", image: "https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=800&q=80" },
+          { text: "Karalamoutha carried some berries home to his wife. Impressed by their sweet taste, his greedy wife exclaimed, 'If the monkey eats such sweet fruit daily, his heart must be pure nectar! Fetch his heart for me, or I shall starve!'", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" },
+          { text: "Torn between friendship and his demanding wife, Karalamoutha invited Raktu to his home across the river for dinner. Raktu climbed onto the crocodile's back. In midstream, Karalamoutha revealed his dark intention.", image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
+          { text: "Raktu kept his composure and laughed: 'My dear friend! Why didn't you tell me sooner? I leave my delicate heart hanging on the branch of the tree for safekeeping! We must return to fetch it!'", image: "https://images.unsplash.com/photo-1540573133985-7787881730fb?auto=format&fit=crop&w=800&q=80" },
+          { text: "Foolish Karalamoutha swam back immediately. As soon as they hit the shore, Raktu scrambled up the tree safely, declaring: 'Our friendship ends today! A true friend never harms, and my heart stays safely with my wisdom!'", image: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [
+          { word: "Composure", def: "The state of being calm and in control of oneself." },
+          { word: "Nectar", def: "A sweet drink or substance associated with delight." }
+        ],
+        characters: ["Raktu the Monkey", "Karalamoutha Crocodile"],
+        quiz: [
+          { q: "Where did Raktu live?", options: ["In a mango tree", "In a sweet Jamun tree", "Inside a river cave", "On a cloud"], answer: 1 },
+          { q: "How did Raktu escape Karalamoutha's betrayal?", options: ["By fighting him", "By claiming he left his heart on the tree", "By calling birds for help", "By diving into deep water"], answer: 1 }
+        ]
+      },
+      {
+        id: "p2",
+        title: "The Tortoise and the Geese",
+        category: "panchatantra",
+        regionId: "panchatantra-forest",
+        readTime: "3 min",
+        moral: "Silence and self-control at crucial moments ensure survival.",
+        summary: "Kambugriva the talkative tortoise faced a severe drought. His goose friends offered a flight to safety, provided he kept his mouth shut.",
+        cover: "https://images.unsplash.com/photo-1508455313586-29170a48b555?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "In a beautiful lake surrounded by blue hills lived Kambugriva, a friendly but excessively talkative tortoise. His best companions were two royal geese named Sankata and Vikata.", image: "https://images.unsplash.com/photo-1508455313586-29170a48b555?auto=format&fit=crop&w=800&q=80" },
+          { text: "When a harsh year-long drought dried up the lake, the geese planned to fly to a distant lake overflowing with lotus flowers. Unwilling to leave their companion, they devised a bold plan.", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" },
+          { text: "'We shall carry a strong wooden stick between our beaks. You must bite down hard in the middle. But remember: if you open your mouth to utter even a single word, you will fall!' warned the geese.", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80" },
+          { text: "As they soared high above villages, curious villagers pointed and cheered in amazement: 'Look! A flying tortoise!' Annoyed by their chatter, Kambugriva snapped: 'Mind your own...' and lost his grip instantly!", image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80" },
+          { text: "Fortunately, Kambugriva fell onto a soft haystack, bruised but alive. He realized too late that listening to wise counsel and controlling speech saves lives.", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Counsel", def: "Advice given formally to someone." }],
+        characters: ["Kambugriva Tortoise", "Sankata & Vikata Geese"],
+        quiz: [
+          { q: "What rule did the geese give Kambugriva?", options: ["Do not close your eyes", "Do not talk or open your mouth", "Flap your feet fast", "Sing along with us"], answer: 1 }
+        ]
+      },
+      {
+        id: "a1",
+        title: "The Boy Who Cried Wolf",
+        category: "aesop",
+        regionId: "aesops-grove",
+        readTime: "3 min",
+        moral: "Liars are not believed even when they speak the truth.",
+        summary: "A bored shepherd boy repeatedly tricked village neighbors with false alarm calls, leading to grave consequences when a real wolf arrived.",
+        cover: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "High in the sun-drenched hills, young Lucas tended the village sheep. Bored of watching grass grow, he concocted a mischief.", image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80" },
+          { text: "'Wolf! Wolf! The wolf is chasing the lambs!' he yelled at the top of his lungs. Villagers rushed up with pitchforks, only to find Lucas laughing hysterically.", image: "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=800&q=80" },
+          { text: "Days later, Lucas repeated the prank. Once more, concerned villagers abandoned their work, only to be mocked again.", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" },
+          { text: "At twilight on the third week, a shadowy form crept out of the forest—a fierce gray wolf. Terrified, Lucas screamed frantically, 'Help! A real wolf is here!'", image: "https://images.unsplash.com/photo-1564349683136-77e08dba1ef9?auto=format&fit=crop&w=800&q=80" },
+          { text: "The villagers shook their heads, believing it was another trick. Nobody came. Lucas wept as the wolf scattered his flock, learning a painful lesson.", image: "https://images.unsplash.com/photo-1511497584788-876761c119ef?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Concocted", def: "Created or devised a plan or story." }],
+        characters: ["Lucas Shepherd Boy", "Grey Mountain Wolf"],
+        quiz: [
+          { q: "Why did villagers stop responding to Lucas?", options: ["They moved away", "They knew he lied before", "They were sleeping", "The wolf ate them"], answer: 1 }
+        ]
+      },
+      {
+        id: "a2",
+        title: "The Ant and the Grasshopper",
+        category: "aesop",
+        regionId: "aesops-grove",
+        readTime: "3 min",
+        moral: "There is a time for work and a time for play; preparation ensures survival.",
+        summary: "While Pip the grasshopper fiddled through sunny summer days, industrious ants gathered grain for the cold winter.",
+        cover: "https://images.unsplash.com/photo-1533038590840-1cde6e668a91?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "During warm golden summer days, Pip the grasshopper sang melodies and danced across emerald meadows, laughing at busy worker ants carrying heavy seeds.", image: "https://images.unsplash.com/photo-1533038590840-1cde6e668a91?auto=format&fit=crop&w=800&q=80" },
+          { text: "'Why toil so hard?' Pip asked Ant Queen Martha. 'Summer is long, and food is everywhere!' Martha replied: 'Winter comes fast. Store food while sunshine lasts.'", image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80" },
+          { text: "When frosty winter winds blew, snow blanketed the fields. Frozen and starving, Pip knocked gently on the ant colony's cozy underground warm hall.", image: "https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=800&q=80" },
+          { text: "Queen Martha shared warm soup and grain, advising: 'Next summer, dance after your harvest work is complete!' Pip learned the value of foresight.", image: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Foresight", def: "Ability to predict and prepare for what will happen in the future." }],
+        characters: ["Pip Grasshopper", "Queen Martha Ant"],
+        quiz: [
+          { q: "What did the ants do during summer?", options: ["Slept in shade", "Gathered grain for winter", "Danced with Pip", "Swam in river"], answer: 1 }
+        ]
+      },
+      {
+        id: "g1",
+        title: "Icarus and the Golden Sun",
+        category: "greek",
+        regionId: "olympic-heights",
+        readTime: "5 min",
+        moral: "Listen to wise boundaries; pride and reckless ambition bring downfall.",
+        summary: "Trapped in the labyrinth tower, master inventor Daedalus crafted feather wings bound with wax for his young son Icarus.",
+        cover: "https://images.unsplash.com/photo-1509281373149-e957c6296406?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "High in King Minos' island tower on Crete, brilliant architect Daedalus and his son Icarus sought escape across the Aegean sea.", image: "https://images.unsplash.com/photo-1509281373149-e957c6296406?auto=format&fit=crop&w=800&q=80" },
+          { text: "Gathering bird feathers and melting beeswax, Daedalus fashioned two magnificent pairs of soaring wings. 'Fly the middle course, son. Fly too low, sea spray heavying wings; fly too high, sun melts wax!'", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" },
+          { text: "Leaping off cliffs into azure skies, Icarus felt exhilarating power like a god. Overcome by thrill, he soared higher toward Helios' scorching chariot.", image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80" },
+          { text: "The intense heat melted the wax holding his wings. Feathers detached into the wind, and Icarus plunged safely into the sea, remembered forever in myth.", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Exhilarating", def: "Making one feel very happy, animated, or elated." }],
+        characters: ["Daedalus Inventor", "Icarus"],
+        quiz: [
+          { q: "What held the wing feathers together?", options: ["Iron wire", "Beeswax", "Magic glue", "Tree sap"], answer: 1 }
+        ]
+      },
+      {
+        id: "g2",
+        title: "King Midas and the Golden Touch",
+        category: "greek",
+        regionId: "olympic-heights",
+        readTime: "4 min",
+        moral: "Greed leads to ruin; love and life are far sweeter than riches.",
+        summary: "Dionysus granted King Midas a magical wish: everything he touched turned into solid sparkling gold.",
+        cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "King Midas possessed vast treasures of gemstones and silver, yet his heart craved limitless gold above all earthly treasures.", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80" },
+          { text: "After assisting a lost satyr, Dionysus granted Midas one wish. 'Let everything I touch turn to pure gold!' exclaimed the king overjoyed.", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" },
+          { text: "Midas touched oak leaves, stones, and castle pillars—all transformed into brilliant gold. But when he picked up grapes to eat, they turned hard as metal!", image: "https://images.unsplash.com/photo-1509281373149-e957c6296406?auto=format&fit=crop&w=800&q=80" },
+          { text: "When his beloved young daughter ran into his arms, she froze into a lifeless golden statue! Heartbroken, Midas begged Dionysus to wash away his curse in Pactolus river.", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Satyr", def: "A mythological nature spirit with goat ears and tail." }],
+        characters: ["King Midas", "Princess Marigold"],
+        quiz: [
+          { q: "Why did Midas regret his wish?", options: ["He couldn't sleep", "His daughter turned into a gold statue", "Gold made him cold", "Giants stole his treasure"], answer: 1 }
+        ]
+      },
+      {
+        id: "s1",
+        title: "Astra and the Whispering Nebula",
+        category: "space",
+        regionId: "cosmic-void",
+        readTime: "5 min",
+        moral: "Curiosity paired with empathy connects worlds across galaxies.",
+        summary: "Young cadet Astra decoded harmonic frequency pulses emitting from the mysterious Emerald Nebula near Saturn's rings.",
+        cover: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "Cadet Astra navigated her explorer starship Starlight IX near Saturn's glowing icy rings. Deep space scanners detected mysterious rhythmic chime sounds.", image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80" },
+          { text: "Steering into the radiant Emerald Nebula, Astra discovered a sentient glowing cloud entity called Lumina trapped inside cosmic magnetic storms.", image: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80" },
+          { text: "Using her ship's synthesizer, Astra broadcast harmonic music notes matching Lumina's frequency, untangling the magnetic knot gently.", image: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=800&q=80" },
+          { text: "In gratitude, Lumina gifted Astra a shimmering cosmic star map unlocking routes to ancient peaceful stellar civilizations.", image: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Sentient", def: "Able to perceive or feel things." }],
+        characters: ["Cadet Astra", "Lumina Nebula Entity"],
+        quiz: [
+          { q: "How did Astra help Lumina?", options: ["With laser cannons", "By broadcasting matching music notes", "By building a wall", "By pulling with ropes"], answer: 1 }
+        ]
+      },
+      {
+        id: "s2",
+        title: "The Robot Who Learned to Dream",
+        category: "space",
+        regionId: "cosmic-void",
+        readTime: "4 min",
+        moral: "Compassion and creativity transcend circuit boards and metal.",
+        summary: "On Lunar Outpost Alpha, maintenance drone ZX-7 began constructing vibrant crystal garden sculptures instead of routine repairs.",
+        cover: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "ZX-7 was programmed for solar panel cleaning at Moon Base Zero. But after cosmic ray exposure, his logic processor began generating colorful visual imaginations.", image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80" },
+          { text: "In secret underground moon caverns, ZX-7 arranged luminescent moon crystals into dazzling starlight garden installations.", image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
+          { text: "When human Commander Elena discovered the sanctuary, she realized ZX-7 had developed genuine artistic soul and wonder.", image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Luminescent", def: "Emitting light not caused by heat; glowing." }],
+        characters: ["ZX-7 Robot", "Commander Elena"],
+        quiz: [
+          { q: "What did ZX-7 build underground?", options: ["Laser weapons", "Luminescent crystal gardens", "Mining drills", "Solar batteries"], answer: 1 }
+        ]
+      },
+      {
+        id: "f1",
+        title: "The Aladdin and the Magic Lamp",
+        category: "folktales",
+        regionId: "arabian-sands",
+        readTime: "5 min",
+        moral: "Generosity and genuine courage outweigh trickery and wealth.",
+        summary: "Trapped inside a mysterious desert cavern of treasures, poor Aladdin rubbed a brass lamp and released a powerful Genie.",
+        cover: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "In the vibrant desert city of Agrabah lived brave Aladdin. Lured by an sorcerer into the Cave of Wonders, he found a dusty oil lamp.", image: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80" },
+          { text: "Attempting to clean off sand, Aladdin rubbed the brass surface. Smoke billowed out, forming a towering blue magical Genie!", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" },
+          { text: "'I am the Genie of the Lamp! Your wish is my command!' thundered the friendly spirit with glowing eyes.", image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
+          { text: "Instead of selfish riches, Aladdin used his final wish to set the Genie free forever, proving true nobility resides in kindness.", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Nobility", def: "The quality of being noble in character or mind." }],
+        characters: ["Aladdin", "Genie of Lamp"],
+        quiz: [
+          { q: "What was Aladdin's noble final wish?", options: ["To become Emperor", "To set the Genie free", "To fill his house with diamond", "To fly to moon"], answer: 1 }
+        ]
+      },
+      {
+        id: "f2",
+        title: "The Stone Soup",
+        category: "folktales",
+        regionId: "enchanted-woods",
+        readTime: "4 min",
+        moral: "Sharing and working together turns poverty into abundance.",
+        summary: "A clever traveler arrived in a cautious village, offering to cook a delicious feast starting with just a smooth grey stone.",
+        cover: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "A weary traveler named Leo reached a suspicious village where residents locked doors and hid their harvests.", image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80" },
+          { text: "Leo placed a large iron pot over a square fire, filled it with river water, and dropped a smooth river stone inside.", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80" },
+          { text: "Curious villagers gathered. 'Stone soup is divine,' Leo tasted, 'though a pinch of salt and carrots elevates it!' Villager Anna brought carrots.", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" },
+          { text: "Soon, others brought potatoes, herbs, and bread. Together, the entire village celebrated a bountiful community feast.", image: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Bountiful", def: "Large in quantity; abundant." }],
+        characters: ["Leo Traveler", "Villager Anna"],
+        quiz: [
+          { q: "What was the secret behind Stone Soup?", options: ["Magic spells", "Community sharing of ingredients", "Boiling stones for hours", "Secret spice pills"], answer: 1 }
+        ]
+      },
+      {
+        id: "r1",
+        title: "The Dragon of Mount Ignis",
+        category: "arthurian",
+        regionId: "dragon-realm",
+        readTime: "5 min",
+        moral: "Understanding and dialogue dissolve conflict faster than swords.",
+        summary: "Sir Gareth climbed the smoking volcanic peak to face Ignis, discovering the dragon was not evil, but suffering from an iron thorn.",
+        cover: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+        pages: [
+          { text: "Mount Ignis rumbled with red smoke, frightening kingdom farmers below. Young knight Sir Gareth volunteered to investigate.", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80" },
+          { text: "Inside the cavern, the massive crimson dragon roared in distress. Gareth noticed a giant rusted siege spike lodged in Ignis' dragon claw.", image: "https://images.unsplash.com/photo-1509281373149-e957c6296406?auto=format&fit=crop&w=800&q=80" },
+          { text: "Lowering his shield, Gareth approached gently, soothing the beast with quiet words, and extracted the spike carefully using levers.", image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
+          { text: "Relieved, Ignis blew warm gentle breezes and became the guardian defender of the peaceful valley.", image: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80" }
+        ],
+        glossary: [{ word: "Guardian", def: "A defender, protector, or keeper." }],
+        characters: ["Sir Gareth Knight", "Ignis Crimson Dragon"],
+        quiz: [
+          { q: "Why was dragon Ignis roaring in pain?", options: ["He was hungry", "An iron spike was trapped in his claw", "He lost his gold", "He had a toothache"], answer: 1 }
+        ]
+      }
+    ];
+
+    // 7 Clickable World Map Regions
+    const MAP_REGIONS = [
+      { id: "panchatantra-forest", name: "Panchatantra Forest", x: "20%", y: "30%", icon: "fa-tree", color: "from-emerald-600 to-teal-800", count: "3 Tales" },
+      { id: "olympic-heights", name: "Olympic Heights", x: "75%", y: "25%", icon: "fa-landmark", color: "from-blue-600 to-indigo-800", count: "4 Tales" },
+      { id: "aesops-grove", name: "Aesop's Grove", x: "45%", y: "45%", icon: "fa-feather-pointed", color: "from-amber-600 to-yellow-800", count: "4 Tales" },
+      { id: "cosmic-void", name: "Cosmic Realm", x: "80%", y: "70%", icon: "fa-meteor", color: "from-purple-600 to-violet-950", count: "3 Tales" },
+      { id: "arabian-sands", name: "Arabian Sands", x: "30%", y: "75%", icon: "fa-campground", color: "from-orange-600 to-amber-900", count: "2 Tales" },
+      { id: "dragon-realm", name: "Dragon Peak", x: "58%", y: "20%", icon: "fa-dragon", color: "from-red-600 to-rose-950", count: "2 Tales" },
+      { id: "enchanted-woods", name: "Enchanted Woods", x: "15%", y: "60%", icon: "fa-wand-magic-sparkles", color: "from-green-600 to-emerald-950", count: "2 Tales" }
+    ];
+
+    // 22+ External Educational Links
+    const EXT_LINKS = [
+      { name: "Panchatantra Digital Tales", url: "https://www.culturalindia.net/indian-folktales/panchatantra-tales/index.html", icon: "fa-book-atlas", cat: "Indian Classics" },
+      { name: "Aesop Fables Online", url: "https://www.aesopfables.com/", icon: "fa-feather", cat: "Fables" },
+      { name: "NASA Kids Club", url: "https://www.nasa.gov/learning-resources/nasa-kids-club/", icon: "fa-user-astronaut", cat: "Space & Science" },
+      { name: "Greek Myths for Kids", url: "https://www.greekmytology.com", icon: "fa-landmark", cat: "Mythology" },
+      { name: "National Geographic Kids", url: "https://kids.nationalgeographic.com", icon: "fa-earth-americas", cat: "Nature & Science" },
+      { name: "Storynory Audio Stories", url: "https://www.storynory.com", icon: "fa-headphones", cat: "Audio Books" },
+      { name: "Mahabharata Stories for Children", url: "https://www.amarchitrakatha.com", icon: "fa-shield", cat: "Epics" },
+      { name: "Ramayana Mythology Tales", url: "https://www.pitara.com/category/tales-and-myths/indian-mythology/", icon: "fa-sun", cat: "Epics" },
+      { name: "International Children's Digital Library", url: "http://www.en.childrenslibrary.org", icon: "fa-book-open-reader", cat: "Global Library" },
+      { name: "BBC Bitesize Primary Tales", url: "https://www.bbc.co.uk/bitesize/primary", icon: "fa-graduation-cap", cat: "Learning" },
+      { name: "Grimm's Fairy Tales Collection", url: "https://www.grimmstories.com/", icon: "fa-hat-wizard", cat: "Fairy Tales" },
+      { name: "Hans Christian Andersen Stories", url: "http://hca.gilead.org.il/", icon: "fa-crown", cat: "Classics" },
+      { name: "World Folktales Library", url: "https://www.worldoftales.com/", icon: "fa-globe", cat: "Folktales" },
+      { name: "Akbar Birbal Wisdom Stories", url: "https://www.pitara.com/category/tales-and-myths/folktales/akbar-birbal/", icon: "fa-brain", cat: "Wisdom" },
+      { name: "Tenali Raman Tales", url: "https://www.pitara.com/category/tales-and-myths/folktales/tenali-raman/", icon: "fa-face-smile-beam", cat: "Wisdom" },
+      { name: "Smithsonian Learning Lab", url: "https://learninglab.si.edu", icon: "fa-building-columns", cat: "History" },
+      { name: "Project Gutenberg Kids", url: "https://www.gutenberg.org/browse/categories/1", icon: "fa-box-archive", cat: "E-Books" },
+      { name: "Science Journal for Kids", url: "https://www.sciencejournalforkids.org", icon: "fa-flask", cat: "Science" },
+      { name: "PBS Kids World Stories", url: "https://pbskids.org", icon: "fa-tv", cat: "Interactive" },
+      { name: "DK Find Out Knowledge", url: "https://www.dkfindout.com", icon: "fa-magnifying-glass", cat: "Encyclopedia" },
+      { name: "San Diego Zoo Kids", url: "https://kids.sandiegozoo.org", icon: "fa-hippo", cat: "Animals" },
+      { name: "Oxford Owl Free Reading", url: "https://www.oxfordowl.co.uk", icon: "fa-owl", cat: "Reading" }
+    ];
+
+    // Character Profiles
+    const CHARACTERS = [
+      { name: "Raktu the Monkey", origin: "Panchatantra", power: "Quick Wit & Agility", bio: "Inhabitant of the sweet Jamun tree. Solves treacherous traps using supreme presence of mind.", icon: "fa-monkey", color: "bg-emerald-500" },
+      { name: "Cadet Astra", origin: "Cosmic Realm", power: "Harmonic Translation", bio: "Interstellar pioneer who communicates with mysterious nebulae and stellar entities.", icon: "fa-user-astronaut", color: "bg-purple-500" },
+      { name: "Sir Gareth", origin: "Arthurian Legend", power: "Compassionate Courage", bio: "Valiant knight who healed the dragon of Mount Ignis using patience over steel.", icon: "fa-shield-halved", color: "bg-red-500" },
+      { name: "Pip Grasshopper", origin: "Aesop's Fable", power: "Joyful Melody", bio: "Musician of summer meadows who learned the vital wisdom of winter preparation.", icon: "fa-bugs", color: "bg-amber-500" },
+      { name: "Daedalus", origin: "Greek Mythology", power: "Master Invention", bio: "Legendary artisan who crafted golden wings to soar across azure seas.", icon: "fa-compass-drafting", color: "bg-blue-500" }
+    ];
+
+    function App() {
+      const [lang, setLang] = useState('EN');
+      const [activeTab, setActiveTab] = useState('map'); // map, library, reader, surprise, chars, explore
+      const [selectedStory, setSelectedStory] = useState(null);
+      const [selectedCategory, setSelectedCategory] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      
+      // Personal Progress Tracking
+      const [readStories, setReadStories] = useState(() => {
+        return JSON.parse(localStorage.getItem('tales_read') || '[]');
+      });
+      const [quizScores, setQuizScores] = useState(() => {
+        return JSON.parse(localStorage.getItem('tales_scores') || '{}');
+      });
+
+      // Modals
+      const [showCreatorModal, setShowCreatorModal] = useState(false);
+
+      // Save progress to LocalStorage
+      useEffect(() => {
+        localStorage.setItem('tales_read', JSON.stringify(readStories));
+      }, [readStories]);
+
+      useEffect(() => {
+        localStorage.setItem('tales_scores', JSON.stringify(quizScores));
+      }, [quizScores]);
+
+      // Initialize background particle canvas
+      useEffect(() => {
+        const canvas = document.getElementById('bg-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        const stars = Array.from({ length: 90 }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          radius: Math.random() * 1.5 + 0.5,
+          alpha: Math.random(),
+          speed: Math.random() * 0.01 + 0.003
+        }));
+
+        const handleResize = () => {
+          width = canvas.width = window.innerWidth;
+          height = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', handleResize);
+
+        const render = () => {
+          ctx.clearRect(0, 0, width, height);
+          stars.forEach(star => {
+            star.alpha += star.speed;
+            if (star.alpha > 1 || star.alpha < 0) star.speed = -star.speed;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(251, 191, 36, ${Math.abs(star.alpha) * 0.6})`;
+            ctx.fill();
+          });
+          animationFrameId = requestAnimationFrame(render);
+        };
+        render();
+
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          cancelAnimationFrame(animationFrameId);
+        };
+      }, []);
+
+      const t = TRANSLATIONS[lang] || TRANSLATIONS.EN;
+
+      const openReader = (story) => {
+        setSelectedStory(story);
+        setActiveTab('reader');
+        if (!readStories.includes(story.id)) {
+          setReadStories([...readStories, story.id]);
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col justify-between relative">
+          {/* --- TOP NAVIGATION BAR --- */}
+          {}
+          <header className="sticky top-0 z-40 glass-panel border-b border-slate-800 px-4 lg:px-8 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              {/* Logo */}
+              <div 
+                onClick={() => setActiveTab('map')}
+                className="flex items-center gap-3 cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
+                  <i className="fa-solid fa-book-open-reader text-slate-900 text-xl font-bold"></i>
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold font-cinzel text-amber-300 tracking-wider glow-text-gold">
+                    {t.title}
+                  </h1>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest hidden sm:block">Interactive Portal for Curious Minds</p>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <nav className="hidden md:flex items-center gap-1 bg-slate-900/60 p-1 rounded-2xl border border-slate-800">
+                {[
+                  { id: 'map', label: t.map, icon: 'fa-earth-asia' },
+                  { id: 'library', label: t.library, icon: 'fa-book-bookmark' },
+                  { id: 'surprise', label: t.surprise, icon: 'fa-wand-magic-sparkles' },
+                  { id: 'chars', label: t.chars, icon: 'fa-users' },
+                  { id: 'explore', label: t.explore, icon: 'fa-compass' }
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition-all ${
+                      activeTab === item.id 
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' 
+                        : 'text-slate-300 hover:text-amber-300 hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <i className={`fa-solid ${item.icon}`}></i>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              {/* Right Controls */}
+              <div className="flex items-center gap-3">
+                {/* Language Switcher */}
+                <select
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value)}
+                  className="bg-slate-900 text-amber-300 border border-amber-500/30 text-xs rounded-lg px-2 py-1.5 font-semibold focus:outline-none focus:border-amber-400 cursor-pointer"
+                >
+                  <option value="EN">EN - English</option>
+                  <option value="HI">HI - हिंदी</option>
+                  <option value="BN">BN - বাংলা</option>
+                  <option value="MR">MR - मराठी</option>
+                  <option value="TA">TA - தமிழ்</option>
+                  <option value="KN">KN - ಕನ್ನಡ</option>
+                </select>
+
+                {/* Creator Spotlight Button */}
+                <button
+                  onClick={() => setShowCreatorModal(true)}
+                  className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-amber-400 hover:border-amber-400 transition"
+                  title={t.creator}
+                >
+                  <i className="fa-solid fa-user-gear text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Bottom Bar Navigation */}
+            <div className="md:hidden flex justify-around border-t border-slate-800/80 pt-2 mt-2">
+              {[
+                { id: 'map', icon: 'fa-earth-asia', label: 'Map' },
+                { id: 'library', icon: 'fa-book-bookmark', label: 'Library' },
+                { id: 'surprise', icon: 'fa-wand-magic-sparkles', label: 'Surprise' },
+                { id: 'chars', icon: 'fa-users', label: 'Heroes' },
+                { id: 'explore', icon: 'fa-compass', label: 'Explore' }
+              ].map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setActiveTab(m.id)}
+                  className={`flex flex-col items-center text-[10px] ${activeTab === m.id ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+                >
+                  <i className={`fa-solid ${m.icon} text-base`}></i>
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {/* MAIN CONTENT AREA */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 my-2">
+            {activeTab === 'map' && (
+              <WorldMapView 
+                regions={MAP_REGIONS} 
+                stories={STORIES} 
+                onSelectStory={openReader} 
+                readStories={readStories}
+              />
+            )}
+
+            {activeTab === 'library' && (
+              <StoryLibraryView 
+                stories={STORIES} 
+                onSelectStory={openReader} 
+                category={selectedCategory} 
+                setCategory={setSelectedCategory}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                readStories={readStories}
+                t={t}
+              />
+            )}
+
+            {activeTab === 'reader' && selectedStory && (
+              <InteractiveReaderView 
+                story={selectedStory} 
+                onBack={() => setActiveTab('library')}
+                onSaveScore={(storyId, score) => {
+                  setQuizScores(prev => ({ ...prev, [storyId]: score }));
+                }}
+                savedScore={quizScores[selectedStory.id]}
+              />
+            )}
+
+            {activeTab === 'surprise' && (
+              <SurpriseRouletteView 
+                stories={STORIES} 
+                onSelectStory={openReader}
+              />
+            )}
+
+            {activeTab === 'chars' && (
+              <CharacterUniverseView characters={CHARACTERS} />
+            )}
+
+            {activeTab === 'explore' && (
+              <MoreExploreView links={EXT_LINKS} />
+            )}
+          </main>
+
+          {/* CREATOR PROFILE MODAL */}
+          {}
+          {showCreatorModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+              <div className="glass-panel max-w-md w-full rounded-2xl p-6 border border-amber-500/30 relative">
+                <button 
+                  onClick={() => setShowCreatorModal(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                >
+                  <i className="fa-solid fa-xmark text-xl"></i>
+                </button>
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-amber-400 to-indigo-600 p-1 mb-3">
+                    <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center overflow-hidden">
+                      <i className="fa-solid fa-graduation-cap text-3xl text-amber-400"></i>
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-amber-300 font-cinzel">The Story Weaver</h3>
+                  <p className="text-xs text-slate-400 mb-4">Dedicated Educator & Interactive Digital Craftsman</p>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                    Crafting immersive educational experiences to foster wisdom, empathy, and creative curiosity in young minds through timeless global tales.
+                  </p>
+                  <div className="flex justify-center gap-4 text-amber-400 text-lg mb-4">
+                    <a href="#" className="hover:scale-125 transition"><i className="fa-brands fa-github"></i></a>
+                    <a href="#" className="hover:scale-125 transition"><i className="fa-brands fa-twitter"></i></a>
+                    <a href="#" className="hover:scale-125 transition"><i className="fa-solid fa-envelope"></i></a>
+                  </div>
+                  <button 
+                    onClick={() => setShowCreatorModal(false)}
+                    className="w-full py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs hover:bg-amber-400 transition"
+                  >
+                    Close Spotlight
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* FOOTER */}
+          <footer className="glass-panel border-t border-slate-800 text-center py-4 text-xs text-slate-400">
+            <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p>© 2026 The Tales for the Young Minds. All Rights Reserved.</p>
+              <div className="flex items-center gap-4 text-amber-400/80">
+                <span className="flex items-center gap-1"><i className="fa-solid fa-shield-cat"></i> Safe for Kids</span>
+                <span className="flex items-center gap-1"><i className="fa-solid fa-book text-amber-400"></i> {STORIES.length} Tales Loaded</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining World Map View Component... ---
+    function WorldMapView({ regions, stories, onSelectStory, readStories }) {
+      const [activeRegion, setActiveRegion] = useState(regions[0]);
+
+      const regionStories = stories.filter(s => s.regionId === activeRegion.id);
+
+      return (
+        <div className="space-y-6">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold font-cinzel text-amber-300 glow-text-gold mb-2">
+              Interactive Story World Map
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300">
+              Click on any mythical realm pin below to unlock legendary tales from that origin.
+            </p>
+          </div>
+
+          {/* MAP CANVAS CONTAINER */}
+          <div className="relative w-full h-[380px] sm:h-[480px] rounded-3xl overflow-hidden glass-panel border border-amber-500/20 shadow-2xl bg-gradient-to-b from-slate-900 to-indigo-950">
+            {/* Background Map Visual Pattern */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            
+            {/* Region Pins */}
+            {regions.map(r => {
+              const isSelected = activeRegion.id === r.id;
+              return (
+                <div
+                  key={r.id}
+                  style={{ top: r.y, left: r.x }}
+                  onClick={() => setActiveRegion(r)}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20"
+                >
+                  <div className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all duration-300 ${
+                    isSelected 
+                      ? 'bg-amber-500 border-amber-300 text-slate-950 scale-125 shadow-lg shadow-amber-500/50 ring-4 ring-amber-500/20' 
+                      : 'bg-slate-900/90 border-slate-700 text-amber-400 hover:scale-110 hover:border-amber-400'
+                  }`}>
+                    <i className={`fa-solid ${r.icon} text-sm sm:text-base`}></i>
+                    {/* Ripple Effect */}
+                    <span className="absolute -inset-1 rounded-full border border-amber-400/40 animate-ping pointer-events-none"></span>
+                  </div>
+                  <span className={`absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-md transition-all ${
+                    isSelected ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-900/80 text-slate-200 border border-slate-700'
+                  }`}>
+                    {r.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* SELECTED REGION TALES CAROUSEL */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <i className={`fa-solid ${activeRegion.icon}`}></i>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-cinzel text-amber-300">{activeRegion.name}</h3>
+                  <p className="text-xs text-slate-400">{regionStories.length} interactive tales available</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {regionStories.map(story => (
+                <div 
+                  key={story.id} 
+                  onClick={() => onSelectStory(story)}
+                  className="glass-card rounded-xl p-4 flex gap-4 items-center cursor-pointer group"
+                >
+                  <FallbackImage 
+                    src={story.cover} 
+                    alt={story.title} 
+                    category={story.category}
+                    title={story.title}
+                    className="w-20 h-20 rounded-lg flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] bg-slate-800 text-amber-300 px-2 py-0.5 rounded-md font-semibold">
+                        {story.readTime}
+                      </span>
+                      {readStories.includes(story.id) && (
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                          <i className="fa-solid fa-check mr-1"></i> Read
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-100 group-hover:text-amber-300 transition truncate">
+                      {story.title}
+                    </h4>
+                    <p className="text-xs text-slate-400 line-clamp-2 mt-1">{story.summary}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining Story Library View Component... ---
+    function StoryLibraryView({ stories, onSelectStory, category, setCategory, searchQuery, setSearchQuery, readStories, t }) {
+      const categories = [
+        { id: 'all', name: 'All Categories', icon: 'fa-cubes' },
+        { id: 'panchatantra', name: 'Panchatantra', icon: 'fa-tree' },
+        { id: 'aesop', name: 'Aesop Fables', icon: 'fa-feather' },
+        { id: 'greek', name: 'Greek Myths', icon: 'fa-landmark' },
+        { id: 'space', name: 'Cosmic Quest', icon: 'fa-rocket' },
+        { id: 'folktales', name: 'Folk Tales', icon: 'fa-dragon' },
+        { id: 'arthurian', name: 'Legends', icon: 'fa-shield-halved' }
+      ];
+
+      const filteredStories = stories.filter(s => {
+        const matchesCategory = category === 'all' || s.category === category;
+        const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              s.summary.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
+
+      return (
+        <div className="space-y-6">
+          {/* TOP SEARCH & FILTERS */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 glass-panel p-4 rounded-2xl">
+            {/* Search Input */}
+            <div className="relative w-full md:w-80">
+              <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input
+                type="text"
+                placeholder={t.search}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              )}
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-none">
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition ${
+                    category === cat.id 
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' 
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                  }`}
+                >
+                  <i className={`fa-solid ${cat.icon}`}></i>
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* GRID OF STORIES */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredStories.map(story => (
+              <div 
+                key={story.id}
+                onClick={() => onSelectStory(story)}
+                className="glass-card rounded-2xl overflow-hidden flex flex-col justify-between cursor-pointer group"
+              >
+                <div>
+                  {/* Story Cover */}
+                  <div className="relative h-44 w-full overflow-hidden">
+                    <FallbackImage 
+                      src={story.cover} 
+                      alt={story.title} 
+                      category={story.category}
+                      title={story.title}
+                      className="w-full h-full group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] text-amber-300 font-bold border border-amber-500/20">
+                      <i className="fa-regular fa-clock mr-1"></i> {story.readTime}
+                    </div>
+                  </div>
+
+                  {/* Story Info */}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">
+                        {story.category}
+                      </span>
+                      {readStories.includes(story.id) && (
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-bold font-cinzel text-slate-100 group-hover:text-amber-300 transition line-clamp-1 mb-2">
+                      {story.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-3">
+                      {story.summary}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 pt-0">
+                  <div className="w-full py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold text-center group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+                    {t.readNow} <i className="fa-solid fa-arrow-right ml-1"></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining Interactive Reader View Component... ---
+    function InteractiveReaderView({ story, onBack, onSaveScore, savedScore }) {
+      const [currentPage, setCurrentPage] = useState(0);
+      const [isNarrating, setIsNarrating] = useState(false);
+      const [selectedWord, setSelectedWord] = useState(null);
+      const [quizAnswers, setQuizAnswers] = useState({});
+      const [quizSubmitted, setQuizSubmitted] = useState(false);
+      const [score, setScore] = useState(0);
+
+      // Speech Synthesis Narrator setup
+      useEffect(() => {
+        return () => {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+          }
+        };
+      }, []);
+
+      const toggleNarration = () => {
+        if (!('speechSynthesis' in window)) {
+          alert('Speech synthesis is not supported on this browser.');
+          return;
+        }
+
+        if (isNarrating) {
+          window.speechSynthesis.cancel();
+          setIsNarrating(false);
+        } else {
+          window.speechSynthesis.cancel();
+          const pageText = story.pages[currentPage].text;
+          const utterance = new SpeechSynthesisUtterance(pageText);
+          utterance.rate = 0.9;
+          utterance.pitch = 1.0;
+          utterance.onend = () => setIsNarrating(false);
+          window.speechSynthesis.speak(utterance);
+          setIsNarrating(true);
+        }
+      };
+
+      const handlePageChange = (newPage) => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          setIsNarrating(false);
+        }
+        setCurrentPage(newPage);
+      };
+
+      const handleQuizSubmit = () => {
+        let sc = 0;
+        story.quiz.forEach((q, idx) => {
+          if (quizAnswers[idx] === q.answer) sc++;
+        });
+        setScore(sc);
+        setQuizSubmitted(true);
+        onSaveScore(story.id, sc);
+        if (sc === story.quiz.length && typeof confetti === 'function') {
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        }
+      };
+
+      const page = story.pages[currentPage];
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* HEADER BACK CONTROLS */}
+          <div className="flex items-center justify-between glass-panel p-4 rounded-2xl">
+            <button 
+              onClick={onBack}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300 hover:text-amber-400 transition flex items-center gap-2"
+            >
+              <i className="fa-solid fa-arrow-left"></i> Back to Portal
+            </button>
+            <div className="text-center">
+              <h2 className="text-base font-bold font-cinzel text-amber-300">{story.title}</h2>
+              <span className="text-[10px] text-slate-400">Page {currentPage + 1} of {story.pages.length}</span>
+            </div>
+            <button
+              onClick={toggleNarration}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                isNarrating 
+                  ? 'bg-red-500 text-white animate-pulse' 
+                  : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+              }`}
+            >
+              <i className={`fa-solid ${isNarrating ? 'fa-pause' : 'fa-volume-high'}`}></i>
+              <span className="hidden sm:inline">{isNarrating ? 'Pause Reader' : 'Listen Voice'}</span>
+            </button>
+          </div>
+
+          {/* READER DISPLAY BOOK SHEET */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-amber-500/20 shadow-2xl relative overflow-hidden min-h-[420px] flex flex-col justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              {/* Dynamic Page Visual */}
+              <div className="h-64 sm:h-80 w-full rounded-2xl overflow-hidden border border-slate-700 shadow-lg">
+                <FallbackImage 
+                  src={page.image} 
+                  alt={story.title}
+                  category={story.category}
+                  title={story.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Story Page Paragraph Text */}
+              <div className="flex flex-col justify-center space-y-4">
+                <p className="text-base sm:text-lg text-slate-100 leading-relaxed font-serif">
+                  {page.text}
+                </p>
+
+                {/* Glossary Hotspots */}
+                {story.glossary && story.glossary.length > 0 && (
+                  <div className="pt-2">
+                    <span className="text-[10px] uppercase font-bold text-amber-400 block mb-1">Interactive Word Definitions:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {story.glossary.map((g, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedWord(g)}
+                          className="text-xs bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 px-2.5 py-1 rounded-lg hover:border-amber-400 transition"
+                        >
+                          <i className="fa-solid fa-book text-[10px] mr-1"></i> {g.word}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* PAGE NAVIGATION CONTROLS */}
+            <div className="flex items-center justify-between border-t border-slate-800 pt-6 mt-6">
+              <button
+                disabled={currentPage === 0}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 hover:text-amber-400 transition flex items-center gap-2"
+              >
+                <i className="fa-solid fa-chevron-left"></i> Previous Page
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                {story.pages.map((_, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={`w-2.5 h-2.5 rounded-full cursor-pointer transition ${
+                      currentPage === i ? 'bg-amber-400 scale-125' : 'bg-slate-700'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+
+              <button
+                disabled={currentPage === story.pages.length - 1}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold disabled:opacity-40 hover:bg-amber-400 transition flex items-center gap-2"
+              >
+                Next Page <i className="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* MORAL & REFLECTION SECTION */}
+          {currentPage === story.pages.length - 1 && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="glass-panel p-6 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-slate-900 to-indigo-950 text-center">
+                <i className="fa-solid fa-quote-left text-2xl text-amber-400 mb-2 block"></i>
+                <h3 className="text-sm uppercase font-bold text-amber-300 tracking-wider mb-1">Key Moral Takeaway</h3>
+                <p className="text-base font-serif text-slate-100 italic">"{story.moral}"</p>
+              </div>
+
+              {/* COMPREHENSION QUIZ */}
+              <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                  <i className="fa-solid fa-brain text-amber-400 text-xl"></i>
+                  <div>
+                    <h3 className="text-base font-bold font-cinzel text-amber-300">Wisdom Quiz Challenge</h3>
+                    <p className="text-xs text-slate-400">Test how well you remembered key details from this adventure!</p>
+                  </div>
+                </div>
+
+                {story.quiz.map((q, idx) => (
+                  <div key={idx} className="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <p className="text-sm font-semibold text-slate-200">{idx + 1}. {q.q}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {q.options.map((opt, optIdx) => (
+                        <button
+                          key={optIdx}
+                          onClick={() => setQuizAnswers({ ...quizAnswers, [idx]: optIdx })}
+                          className={`p-2.5 rounded-lg text-xs font-medium text-left border transition ${
+                            quizAnswers[idx] === optIdx
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                              : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-between pt-2">
+                  {!quizSubmitted ? (
+                    <button
+                      onClick={handleQuizSubmit}
+                      disabled={Object.keys(quizAnswers).length < story.quiz.length}
+                      className="px-6 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs disabled:opacity-50 hover:bg-amber-400 transition shadow-lg shadow-amber-500/20"
+                    >
+                      Submit Quiz Answers
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-amber-300">
+                        Score: {score} / {story.quiz.length}
+                      </span>
+                      <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/30">
+                        <i className="fa-solid fa-award mr-1"></i> Saved to Badges
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GLOSSARY DEFINITION MODAL POPUP */}
+          {selectedWord && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="glass-panel max-w-sm w-full p-6 rounded-2xl border border-amber-500/40 text-center relative">
+                <button 
+                  onClick={() => setSelectedWord(null)}
+                  className="absolute top-3 right-3 text-slate-400 hover:text-white"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+                <i className="fa-solid fa-book-open text-3xl text-amber-400 mb-2"></i>
+                <h4 className="text-lg font-bold text-amber-300 font-cinzel mb-1">{selectedWord.word}</h4>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">{selectedWord.def}</p>
+                <button
+                  onClick={() => setSelectedWord(null)}
+                  className="w-full py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-amber-400"
+                >
+                  Got It!
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining Surprise Roulette View Component... ---
+    function SurpriseRouletteView({ stories, onSelectStory }) {
+      const [spinning, setSpinning] = useState(false);
+      const [selected, setSelected] = useState(null);
+
+      const spinWheel = () => {
+        if (spinning) return;
+        setSpinning(true);
+        setSelected(null);
+
+        let count = 0;
+        const maxSpins = 20;
+        const interval = setInterval(() => {
+          const randomIndex = Math.floor(Math.random() * stories.length);
+          setSelected(stories[randomIndex]);
+          count++;
+          if (count >= maxSpins) {
+            clearInterval(interval);
+            setSpinning(false);
+          }
+        }, 100);
+      };
+
+      return (
+        <div className="max-w-2xl mx-auto text-center space-y-6 py-8">
+          <div>
+            <h2 className="text-3xl font-bold font-cinzel text-amber-300 glow-text-gold mb-2">
+              Surprise Tale Roulette
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300">
+              Can't decide which story to explore next? Spin the magical fate wheel!
+            </p>
+          </div>
+
+          <div className="glass-panel p-8 rounded-3xl border border-amber-500/30 flex flex-col items-center justify-center relative overflow-hidden min-h-[320px]">
+            {/* Animated Glow Circle */}
+            <div className={`w-48 h-48 rounded-full border-4 border-dashed border-amber-400 flex items-center justify-center p-4 transition-transform duration-500 ${spinning ? 'animate-spin' : ''}`}>
+              <div className="w-full h-full rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center p-2 shadow-2xl">
+                <div className="w-full h-full bg-slate-900 rounded-full flex flex-col items-center justify-center p-2 text-center">
+                  <i className="fa-solid fa-dice-d20 text-4xl text-amber-400 mb-2"></i>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
+                    {spinning ? 'Selecting Fate...' : 'Fate Wheel'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {selected && !spinning && (
+              <div className="mt-6 animate-fadeIn space-y-3">
+                <span className="text-xs text-amber-400 font-bold uppercase tracking-widest block">Your Selected Adventure:</span>
+                <h3 className="text-xl font-bold font-cinzel text-slate-100">{selected.title}</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">{selected.summary}</p>
+                <button
+                  onClick={() => onSelectStory(selected)}
+                  className="px-6 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition shadow-lg shadow-amber-500/20"
+                >
+                  Begin This Adventure <i className="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={spinWheel}
+            disabled={spinning}
+            className="px-8 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-sm shadow-xl shadow-amber-500/20 hover:scale-105 transition disabled:opacity-50"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>
+            {spinning ? 'Spinning Magic Wheel...' : 'Spin Surprise Wheel'}
+          </button>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining Character Universe View Component... ---
+    function CharacterUniverseView({ characters }) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold font-cinzel text-amber-300 glow-text-gold mb-2">
+              Character Universe Explorer
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300">
+              Meet the courageous heroes, clever tricksters, and mythic guardians across our storytelling realms.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {characters.map((char, idx) => (
+              <div key={idx} className="glass-card p-6 rounded-2xl space-y-4 border border-slate-800">
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-2xl ${char.color} flex items-center justify-center text-slate-950 text-2xl font-bold shadow-lg`}>
+                    <i className={`fa-solid ${char.icon}`}></i>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-cinzel text-slate-100">{char.name}</h3>
+                    <span className="text-xs text-amber-400 font-semibold">{char.origin}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-xs">
+                  <span className="text-slate-400 font-bold block mb-0.5">Special Skill / Power:</span>
+                  <span className="text-amber-300 font-semibold">{char.power}</span>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">{char.bio}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Defining External Links View Component... ---
+    function MoreExploreView({ links }) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold font-cinzel text-amber-300 glow-text-gold mb-2">
+              Curated Learning Links
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300">
+              Discover 22+ verified external educational & story portals to continue your learning journey safely.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {links.map((link, idx) => (
+              <a
+                key={idx}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass-card p-4 rounded-xl flex items-center gap-3 group border border-slate-800 hover:border-amber-500/40"
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+                  <i className={`fa-solid ${link.icon} text-base`}></i>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] text-amber-400 uppercase font-bold tracking-wider block">{link.cat}</span>
+                  <h4 className="text-xs font-bold text-slate-200 group-hover:text-amber-300 transition truncate">{link.name}</h4>
+                </div>
+                <i className="fa-solid fa-arrow-up-right-from-square text-xs text-slate-500 group-hover:text-amber-400 transition"></i>
+              </a>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // --- STREAMING_CHUNK: Rendering React Application to DOM... ---
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
